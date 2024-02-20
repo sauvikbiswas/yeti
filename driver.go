@@ -7,7 +7,7 @@ import (
 )
 
 type Driver interface {
-	Configure(config.DriverConfig)
-	NewSession(context.Context, config.SessionConfig) error
+	Configure(config.DriverConfig) error
+	NewSession(context.Context, config.SessionConfig) (Session, error)
 	Close(context.Context)
 }
