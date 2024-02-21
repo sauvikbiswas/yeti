@@ -1,0 +1,17 @@
+// protoc -I=. --go_out=../protostruct test.proto
+// protoc --proto_path=./tests/protosrc --proto_path=./proto/options  --go_out=./tests/protostruct --go_opt paths=source_relative $(find . -name '*.proto' -not -path "*scalapackage.proto")
+
+syntax = "proto3";
+
+package yeti.proto.test;
+
+option go_package = "github.com/sauvikbiswas/yeti/tests/proto/test";
+
+import "proto/options/options.proto";
+
+message TestProto {
+    string name = 1 [
+        (yeti.proto.options.yeti_field_opts).primary_key = true
+    ];
+    int32 age = 2;
+}

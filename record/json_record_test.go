@@ -7,11 +7,11 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/sauvikbiswas/yeti/tests/protostruct"
+	"github.com/sauvikbiswas/yeti/tests/proto/test"
 )
 
 func TestNewJSONRecord(t *testing.T) {
-	testProto := &protostruct.TestProto{
+	testProto := &test.TestProto{
 		Name: "Test",
 		Age:  30,
 	}
@@ -21,7 +21,7 @@ func TestNewJSONRecord(t *testing.T) {
 }
 
 func TestJSONRecord_Serialize(t *testing.T) {
-	testProto := &protostruct.TestProto{
+	testProto := &test.TestProto{
 		Name: "Test",
 		Age:  30,
 	}

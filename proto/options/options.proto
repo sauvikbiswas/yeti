@@ -1,0 +1,23 @@
+// protoc -I=. --go_out=../../ options.proto
+syntax = "proto3";
+
+package yeti.proto.options;
+
+option go_package = "github.com/sauvikbiswas/yeti/tests/proto/options";
+
+import "google/protobuf/descriptor.proto";
+
+extend google.protobuf.MessageOptions {
+    YetiMessageOptions yeti_message_opts = 52125;
+}
+
+message YetiMessageOptions {
+}
+
+extend google.protobuf.FieldOptions {
+    YetiFieldOptions yeti_field_opts = 52125;
+}
+
+message YetiFieldOptions {
+    bool primary_key = 1;
+}

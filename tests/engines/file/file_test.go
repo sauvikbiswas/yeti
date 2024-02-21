@@ -6,7 +6,7 @@ import (
 
 	"github.com/sauvikbiswas/yeti"
 	"github.com/sauvikbiswas/yeti/config"
-	"github.com/sauvikbiswas/yeti/tests/protostruct"
+	"github.com/sauvikbiswas/yeti/tests/proto/test"
 	"github.com/sauvikbiswas/yeti/yetidb/engines/file"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +20,7 @@ func TestFileDriver(t *testing.T) {
 	session, err := fd.NewSession(context.Background(), config.SessionConfig{})
 	require.NoError(t, err)
 
-	rec := &protostruct.TestProto{
+	rec := &test.TestProto{
 		Name: "Sauvik",
 		Age:  99,
 	}
