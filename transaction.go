@@ -4,7 +4,7 @@ import "context"
 
 type Transaction interface {
 	Read(context.Context) ([]Result, error)
-	Write(Record)
+	Write(Record) error
 	Commit(context.Context)
 	Rollback()
 	Close()

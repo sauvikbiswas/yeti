@@ -9,9 +9,17 @@
 package protostruct
 
 import (
+	fmt "fmt"
 	protojson "google.golang.org/protobuf/encoding/protojson"
+	time "time"
 )
 
 func (x *TestProto) Serialize() ([]byte, error) {
 	return protojson.Marshal(x)
+}
+
+func (x *TestProto) Key() (string, error) {
+	t := time.Now()
+	fileName := fmt.Sprintf("TestProto_%s.json", t.Format("20060102150405"))
+	return fileName, nil
 }

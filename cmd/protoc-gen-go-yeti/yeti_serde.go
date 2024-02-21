@@ -14,6 +14,8 @@ const (
 
 const (
 	protojsonPackage = protogen.GoImportPath("google.golang.org/protobuf/encoding/protojson")
+	fmtPackage       = protogen.GoImportPath("fmt")
+	timePackage      = protogen.GoImportPath("time")
 )
 
 func generateFile(gen *protogen.Plugin, file *protogen.File) *protogen.GeneratedFile {
@@ -78,5 +80,11 @@ func generateFileContent(gen *protogen.Plugin, file *protogen.File, g *protogen.
 func genMessage(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile, msg *protogen.Message) {
 	g.P("func (x *", msg.Desc.FullName().Name(), ") Serialize() ([]byte, error) {")
 	g.P("return ", protojsonPackage.Ident("Marshal"), "(x)")
+	g.P("}")
+	g.P()
+	g.P("func (x *", msg.Desc.FullName().Name(), ") Key() (string, error) {")
+	g.P("t := ", timePackage.Ident("Now"), "()")
+	g.P("fileName := ", fmtPackage.Ident("Sprintf"), "(\"", msg.Desc.FullName().Name(), "_%s.json\", t.Format(\"20060102150405\"))")
+	g.P("return fileName, nil")
 	g.P("}")
 }

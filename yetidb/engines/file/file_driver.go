@@ -1,10 +1,11 @@
-package yetidb
+package file
 
 import (
 	"context"
 	"fmt"
 	"os"
 
+	"github.com/sauvikbiswas/yeti"
 	"github.com/sauvikbiswas/yeti/config"
 )
 
@@ -32,6 +33,16 @@ func (f *FileDriver) Configure(dcfg config.DriverConfig) error {
 	return nil
 }
 
-func (f *FileDriver) NewSession(ctx context.Context, scfg config.SessionConfig) (FileSession, error) {
-	return *NewFileSession(), nil
+func (f *FileDriver) NewSession(ctx context.Context, scfg config.SessionConfig) (yeti.Session, error) {
+	if !f.active {
+		return nil, fmt.Errorf("this FileDriver is inactive")
+	}
+	return NewFileSession(f), nil
+}
+
+func (f *FileDriver) GetPath() string {
+	return f.folder
+}
+
+func (f *FileDriver) Close(_ context.Context) {
 }
