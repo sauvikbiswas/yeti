@@ -1,10 +1,16 @@
 FILES := $(shell find . -name '*.proto')
+OPTION_FILES := $(shell find ./proto/options -name '*.proto')
 
-proto: $(FILES)
-	protoc --proto_path=.  --go_out=./tests --go_opt paths=source_relative --go-yeti_out=./tests --go-yeti_opt paths=source_relative $(FILES)
+yeti-proto: $(FILES)
+	protoc --proto_path=.  --go_out=. --go_opt paths=source_relative --go-yeti_out=. --go-yeti_opt paths=source_relative $(FILES)
 
-install:
-	cd cmd/protoc-gen-go-yeti
-	go install .
+yeti-option: $(OPTION_FILES)
+	protoc --proto_path=. --go_out=. --go_opt paths=source_relative $(OPTION_FILES)
 
-.PHONY: proto install
+install-yeti-plugin: yeti-option
+	cd cmd/protoc-gen-go-yeti; go install .
+
+yeti-tests:
+	go test -v ./...
+
+.PHONY: install-yeti-plugin yeti-proto yeti-option yeti-tests

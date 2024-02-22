@@ -27,17 +27,19 @@ func (ft *FileTransaction) Read(ctx context.Context) ([]yeti.Result, error) {
 }
 
 func (ft *FileTransaction) Write(r yeti.Record) error {
-	byteArray, err := r.Serialize()
+	byteArray, err := r.YetiSerialize()
 	if err != nil {
 		return err
 	}
 
-	key, err := r.Key()
+	key, err := r.YetiKey()
 	if err != nil {
 		return err
 	}
 
-	if err := os.WriteFile(path.Join(ft.driver.GetPath(), key), byteArray, 0666); err != nil {
+	name := r.YetiName()
+
+	if err := os.WriteFile(path.Join(ft.driver.GetPath(), name+"_"+key+".json"), byteArray, 0666); err != nil {
 		return err
 	}
 

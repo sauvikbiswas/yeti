@@ -7,7 +7,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/sauvikbiswas/yeti/tests/proto/test"
+	"github.com/sauvikbiswas/yeti/proto/test"
 )
 
 func TestNewJSONRecord(t *testing.T) {

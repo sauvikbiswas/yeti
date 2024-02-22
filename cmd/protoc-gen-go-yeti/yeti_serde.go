@@ -2,9 +2,13 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/sauvikbiswas/yeti/proto/options"
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 const (
@@ -78,13 +82,40 @@ func generateFileContent(gen *protogen.Plugin, file *protogen.File, g *protogen.
 }
 
 func genMessage(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile, msg *protogen.Message) {
-	g.P("func (x *", msg.Desc.FullName().Name(), ") Serialize() ([]byte, error) {")
+	g.P("func (x *", msg.Desc.FullName().Name(), ") YetiSerialize() ([]byte, error) {")
 	g.P("return ", protojsonPackage.Ident("Marshal"), "(x)")
 	g.P("}")
 	g.P()
-	g.P("func (x *", msg.Desc.FullName().Name(), ") Key() (string, error) {")
-	g.P("t := ", timePackage.Ident("Now"), "()")
-	g.P("fileName := ", fmtPackage.Ident("Sprintf"), "(\"", msg.Desc.FullName().Name(), "_%s.json\", t.Format(\"20060102150405\"))")
-	g.P("return fileName, nil")
+	g.P("func (x *", msg.Desc.FullName().Name(), ") YetiName() string {")
+	g.P("return \"", msg.Desc.FullName().Name(), "\"")
 	g.P("}")
+	g.P()
+	g.P("func (x *", msg.Desc.FullName().Name(), ") YetiKey() (string, error) {")
+	g.P("var err error")
+	getKey(gen, file, g, msg)
+	g.P("return key, err")
+	g.P("}")
+}
+
+func getKey(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile, msg *protogen.Message) {
+	primaryKeyGoFuncs := make([]string, 0)
+	primaryKeyFields := make([]string, 0)
+	for _, field := range msg.Fields {
+		messageFieldDesc := field.Desc
+		fieldOpts := messageFieldDesc.Options().(*descriptorpb.FieldOptions)
+		v := proto.GetExtension(fieldOpts, options.E_YetiFieldOpts).(*options.YetiFieldOptions)
+		if v.GetPrimaryKey() {
+			primaryKeyGoFuncs = append(primaryKeyGoFuncs, "x.Get"+field.GoName+"()")
+			primaryKeyFields = append(primaryKeyFields, string(messageFieldDesc.Name()))
+		}
+	}
+	if len(primaryKeyGoFuncs) == 0 {
+		g.P("t := ", timePackage.Ident("Now"), "()")
+		g.P("key := t.Format(\"20060102150405\")")
+	} else {
+		for i, goFunc := range primaryKeyGoFuncs {
+			g.P("if string(", goFunc, ")==\"\" { return \"\", ", fmtPackage.Ident("Errorf"), "(\"", primaryKeyFields[i], " is not set\")}")
+			g.P("key := ", strings.Join(primaryKeyGoFuncs, " + "))
+		}
+	}
 }

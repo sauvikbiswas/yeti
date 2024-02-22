@@ -1,9 +1,8 @@
-// protoc -I=. --go_out=../../ options.proto
 syntax = "proto3";
 
 package yeti.proto.options;
 
-option go_package = "github.com/sauvikbiswas/yeti/tests/proto/options";
+option go_package = "github.com/sauvikbiswas/yeti/proto/options";
 
 import "google/protobuf/descriptor.proto";
 
