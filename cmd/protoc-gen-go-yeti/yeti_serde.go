@@ -105,7 +105,7 @@ func getKey(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile
 		fieldOpts := messageFieldDesc.Options().(*descriptorpb.FieldOptions)
 		v := proto.GetExtension(fieldOpts, options.E_YetiFieldOpts).(*options.YetiFieldOptions)
 		if v.GetPrimaryKey() {
-			primaryKeyGoFuncs = append(primaryKeyGoFuncs, "x.Get"+field.GoName+"()")
+			primaryKeyGoFuncs = append(primaryKeyGoFuncs, "string(x.Get"+field.GoName+"())")
 			primaryKeyFields = append(primaryKeyFields, string(messageFieldDesc.Name()))
 		}
 	}
@@ -114,8 +114,8 @@ func getKey(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile
 		g.P("key := t.Format(\"20060102150405\")")
 	} else {
 		for i, goFunc := range primaryKeyGoFuncs {
-			g.P("if string(", goFunc, ")==\"\" { return \"\", ", fmtPackage.Ident("Errorf"), "(\"", primaryKeyFields[i], " is not set\")}")
-			g.P("key := ", strings.Join(primaryKeyGoFuncs, " + "))
+			g.P("if ", goFunc, "==\"\" { return \"\", ", fmtPackage.Ident("Errorf"), "(\"", primaryKeyFields[i], " is not set\")}")
 		}
+		g.P("key := ", strings.Join(primaryKeyGoFuncs, " + "))
 	}
 }

@@ -18,7 +18,7 @@ func NewFileDriver() *FileDriver {
 	return &FileDriver{}
 }
 
-func (f *FileDriver) Configure(dcfg config.DriverConfig) error {
+func (fd *FileDriver) Configure(dcfg config.DriverConfig) error {
 	if dcfg.Path == "" {
 		return fmt.Errorf("a FileDriver cannot be configured with an empty path")
 	}
@@ -27,22 +27,27 @@ func (f *FileDriver) Configure(dcfg config.DriverConfig) error {
 		return fmt.Errorf("path %s specified in configuration does not exist or is not accessible", dcfg.Path)
 	}
 
-	f.folder = dcfg.Path
-	f.active = true
+	fd.folder = dcfg.Path
+	fd.active = true
 
 	return nil
 }
 
-func (f *FileDriver) NewSession(ctx context.Context, scfg config.SessionConfig) (yeti.Session, error) {
-	if !f.active {
+func (fd *FileDriver) NewSession(ctx context.Context, scfg config.SessionConfig) (yeti.Session, error) {
+	if !fd.IsActive() {
 		return nil, fmt.Errorf("this FileDriver is inactive")
 	}
-	return NewFileSession(f), nil
+	return NewFileSession(fd), nil
 }
 
-func (f *FileDriver) GetPath() string {
-	return f.folder
+func (fd *FileDriver) GetPath() string {
+	return fd.folder
 }
 
-func (f *FileDriver) Close(_ context.Context) {
+func (fd *FileDriver) IsActive() bool {
+	return fd.active
+}
+
+func (fd *FileDriver) Close(_ context.Context) {
+	fd.active = false
 }

@@ -2,6 +2,7 @@ package file
 
 import (
 	"context"
+	"log"
 	"testing"
 
 	"github.com/sauvikbiswas/yeti"
@@ -11,49 +12,120 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var logger = log.Default()
+
 func TestFileDriver(t *testing.T) {
 	fd := file.NewFileDriver()
 
 	err := fd.Configure(config.DriverConfig{Path: "./output"})
 	require.NoError(t, err)
 
-	session, err := fd.NewSession(context.Background(), config.SessionConfig{})
+	ctx := context.Background()
+
+	session, err := fd.NewSession(ctx, config.SessionConfig{})
 	require.NoError(t, err)
 
-	rec := &test.TestProto{
+	rec1 := &test.TestProto{
 		Name: "Sauvik",
 		Age:  99,
 	}
 
-	_, err = session.Execute(context.Background(),
-		func(tx yeti.Transaction) (any, error) {
-			err := tx.Write(rec)
-			return nil, err
-		},
-	)
+	_, err = session.Execute(ctx, getTransactionFunction(ctx, rec1))
+	if err != nil {
+		logger.Printf("error executing session, %s", err.Error())
+	}
+
+	require.NoError(t, err)
+
+	rec2 := &test.TestProtoWithCompositeKey{
+		Name:        "Sauvik",
+		AgeAsString: "99",
+	}
+
+	_, err = session.Execute(ctx, getTransactionFunction(ctx, rec2))
+	if err != nil {
+		logger.Printf("error executing session, %s", err.Error())
+	}
 
 	require.NoError(t, err)
 }
 
-func TestFileDriverError(t *testing.T) {
+func TestUnsetKeyError(t *testing.T) {
 	fd := file.NewFileDriver()
 
 	err := fd.Configure(config.DriverConfig{Path: "./output"})
 	require.NoError(t, err)
 
-	session, err := fd.NewSession(context.Background(), config.SessionConfig{})
+	ctx := context.Background()
+
+	session, err := fd.NewSession(ctx, config.SessionConfig{})
 	require.NoError(t, err)
 
-	rec := &test.TestProto{
+	rec1 := &test.TestProto{
 		Age: 99,
 	}
 
-	_, err = session.Execute(context.Background(),
-		func(tx yeti.Transaction) (any, error) {
-			err := tx.Write(rec)
-			return nil, err
-		},
-	)
+	_, err = session.Execute(ctx, getTransactionFunction(ctx, rec1))
+	if err != nil {
+		logger.Printf("error executing session, %s", err.Error())
+	}
 
 	require.Error(t, err)
+
+	rec2 := &test.TestProtoWithCompositeKey{
+		Name: "Sauvik",
+	}
+
+	_, err = session.Execute(ctx, getTransactionFunction(ctx, rec2))
+	if err != nil {
+		logger.Printf("error executing session, %s", err.Error())
+	}
+
+	require.Error(t, err)
+}
+
+func TestClosedSession(t *testing.T) {
+	fd := file.NewFileDriver()
+
+	err := fd.Configure(config.DriverConfig{Path: "./output"})
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	session, err := fd.NewSession(ctx, config.SessionConfig{})
+	require.NoError(t, err)
+
+	session.Close(ctx)
+
+	rec := &test.TestProto{
+		Age: 98,
+	}
+
+	_, err = session.Execute(ctx, getTransactionFunction(ctx, rec))
+	if err != nil {
+		logger.Printf("error executing session, %s", err.Error())
+	}
+
+	require.Error(t, err)
+}
+
+func TestFolderNotPresent(t *testing.T) {
+	fd := file.NewFileDriver()
+
+	err := fd.Configure(config.DriverConfig{Path: "./folder-not-present"})
+
+	if err != nil {
+		logger.Printf("error configuring driver, %s", err.Error())
+	}
+
+	require.Error(t, err)
+
+}
+
+func getTransactionFunction(ctx context.Context, rec yeti.Record) func(tx yeti.Transaction) (any, error) {
+	return func(tx yeti.Transaction) (any, error) {
+		logger.Printf("executing transcation %s", tx.GetTransactionId())
+		err := tx.Write(ctx, rec)
+		return nil, err
+	}
 }

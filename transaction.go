@@ -4,8 +4,9 @@ import "context"
 
 type Transaction interface {
 	Read(context.Context) ([]Result, error)
-	Write(Record) error
-	Commit(context.Context)
-	Rollback()
-	Close()
+	Write(context.Context, Record) error
+	Commit(context.Context) error
+	Rollback(context.Context) error
+	Close(context.Context)
+	GetTransactionId() string
 }

@@ -12,3 +12,12 @@ message TestProto {
     ];
     int32 age = 2;
 }
+
+message TestProtoWithCompositeKey {
+    string name = 1 [
+        (yeti.proto.options.yeti_field_opts).primary_key = true
+    ];
+    string age_as_string = 2 [
+        (yeti.proto.options.yeti_field_opts).primary_key = true
+    ];
+}

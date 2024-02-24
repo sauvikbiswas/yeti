@@ -13,4 +13,8 @@ install-yeti-plugin: yeti-option
 yeti-tests:
 	go test -v ./...
 
-.PHONY: install-yeti-plugin yeti-proto yeti-option yeti-tests
+tidy:
+	cd cmd/protoc-gen-go-yeti; go mod tidy
+	go mod tidy
+
+.PHONY: install-yeti-plugin yeti-proto yeti-option yeti-tests tidy

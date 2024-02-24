@@ -3,6 +3,7 @@ module github.com/sauvikbiswas/yeti
 go 1.22.0
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.8.4
 	google.golang.org/protobuf v1.26.0
 )
