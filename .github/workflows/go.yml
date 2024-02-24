@@ -1,13 +1,15 @@
 # This workflow will build a golang project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
 
-name: Yeti Go Checks
+name: Yeti Checks
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - '**'
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - 'main'
 
 jobs:
 
@@ -16,15 +18,18 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Set up Go
+    - name: Set up system
+      uses: arduino/setup-protoc@v3
+      with:
+        version: "23.2"
       uses: actions/setup-go@v4
       with:
         go-version: '1.22'
-
-    - name: Install
       run: |
         go get github.com/golang/protobuf/protoc-gen-go
-        make install-yeti-plugin
+
+    - name: Install
+      run: make install-yeti-plugin
       
     - name: Build
       run: make yeti-proto
