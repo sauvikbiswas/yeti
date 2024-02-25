@@ -7,15 +7,24 @@
 package options
 
 import (
+	yeti "github.com/sauvikbiswas/yeti"
 	protojson "google.golang.org/protobuf/encoding/protojson"
 	time "time"
 )
+
+func (x *YetiMessageOptions) New() yeti.Record {
+	return &YetiMessageOptions{}
+}
 
 func (x *YetiMessageOptions) YetiSerialize() ([]byte, error) {
 	return protojson.Marshal(x)
 }
 
-func (x *YetiMessageOptions) YetiName() string {
+func (x *YetiMessageOptions) YetiDeserialize(b []byte) error {
+	return protojson.Unmarshal(b, x)
+}
+
+func (x *YetiMessageOptions) YetiType() string {
 	return "YetiMessageOptions"
 }
 
@@ -25,11 +34,20 @@ func (x *YetiMessageOptions) YetiKey() (string, error) {
 	key := t.Format("20060102150405")
 	return key, err
 }
+
+func (x *YetiFieldOptions) New() yeti.Record {
+	return &YetiFieldOptions{}
+}
+
 func (x *YetiFieldOptions) YetiSerialize() ([]byte, error) {
 	return protojson.Marshal(x)
 }
 
-func (x *YetiFieldOptions) YetiName() string {
+func (x *YetiFieldOptions) YetiDeserialize(b []byte) error {
+	return protojson.Unmarshal(b, x)
+}
+
+func (x *YetiFieldOptions) YetiType() string {
 	return "YetiFieldOptions"
 }
 

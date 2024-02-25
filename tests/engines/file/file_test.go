@@ -9,12 +9,13 @@ import (
 	"github.com/sauvikbiswas/yeti/config"
 	"github.com/sauvikbiswas/yeti/proto/test"
 	"github.com/sauvikbiswas/yeti/yetidb/engines/file"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 var logger = log.Default()
 
-func TestFileDriver(t *testing.T) {
+func TestWrite(t *testing.T) {
 	fd := file.NewFileDriver()
 
 	err := fd.Configure(config.DriverConfig{Path: "./output"})
@@ -30,24 +31,60 @@ func TestFileDriver(t *testing.T) {
 		Age:  99,
 	}
 
-	_, err = session.Execute(ctx, getTransactionFunction(ctx, rec1))
+	_, err = session.Execute(ctx, getWriteTransactionFunction(ctx, rec1))
 	if err != nil {
 		logger.Printf("error executing session, %s", err.Error())
 	}
 
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	rec2 := &test.TestProtoWithCompositeKey{
 		Name:        "Sauvik",
 		AgeAsString: "99",
 	}
 
-	_, err = session.Execute(ctx, getTransactionFunction(ctx, rec2))
+	_, err = session.Execute(ctx, getWriteTransactionFunction(ctx, rec2))
 	if err != nil {
 		logger.Printf("error executing session, %s", err.Error())
 	}
 
+	assert.NoError(t, err)
+}
+
+func TestRead(t *testing.T) {
+	fd := file.NewFileDriver()
+
+	err := fd.Configure(config.DriverConfig{Path: "./output"})
 	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	session, err := fd.NewSession(ctx, config.SessionConfig{})
+	require.NoError(t, err)
+
+	rec1 := &test.TestProto{}
+
+	res1, err := session.Execute(ctx, getReadTransactionFunction(ctx, rec1))
+	if err != nil {
+		logger.Printf("error executing session, %s", err.Error())
+	}
+	assert.NoError(t, err)
+
+	res1out, ok := res1.(map[string]yeti.Record)
+	if ok {
+		res1output, ok := res1out["Sauvik"].(*test.TestProto)
+		if ok {
+			assert.Equal(t, res1output.Name, "Sauvik")
+			assert.Equal(t, res1output.Age, int32(99))
+		} else {
+			logger.Printf("unable to cast result to TestProto")
+		}
+		assert.True(t, ok)
+	} else {
+		logger.Printf("unable to cast result to []Record")
+
+	}
+	assert.True(t, ok)
 }
 
 func TestUnsetKeyError(t *testing.T) {
@@ -65,23 +102,23 @@ func TestUnsetKeyError(t *testing.T) {
 		Age: 99,
 	}
 
-	_, err = session.Execute(ctx, getTransactionFunction(ctx, rec1))
+	_, err = session.Execute(ctx, getWriteTransactionFunction(ctx, rec1))
 	if err != nil {
 		logger.Printf("error executing session, %s", err.Error())
 	}
 
-	require.Error(t, err)
+	assert.Error(t, err)
 
 	rec2 := &test.TestProtoWithCompositeKey{
 		Name: "Sauvik",
 	}
 
-	_, err = session.Execute(ctx, getTransactionFunction(ctx, rec2))
+	_, err = session.Execute(ctx, getWriteTransactionFunction(ctx, rec2))
 	if err != nil {
 		logger.Printf("error executing session, %s", err.Error())
 	}
 
-	require.Error(t, err)
+	assert.Error(t, err)
 }
 
 func TestClosedSession(t *testing.T) {
@@ -101,12 +138,12 @@ func TestClosedSession(t *testing.T) {
 		Age: 98,
 	}
 
-	_, err = session.Execute(ctx, getTransactionFunction(ctx, rec))
+	_, err = session.Execute(ctx, getWriteTransactionFunction(ctx, rec))
 	if err != nil {
 		logger.Printf("error executing session, %s", err.Error())
 	}
 
-	require.Error(t, err)
+	assert.Error(t, err)
 }
 
 func TestFolderNotPresent(t *testing.T) {
@@ -122,10 +159,17 @@ func TestFolderNotPresent(t *testing.T) {
 
 }
 
-func getTransactionFunction(ctx context.Context, rec yeti.Record) func(tx yeti.Transaction) (any, error) {
+func getWriteTransactionFunction(ctx context.Context, rec yeti.Record) func(tx yeti.Transaction) (any, error) {
 	return func(tx yeti.Transaction) (any, error) {
 		logger.Printf("executing transcation %s", tx.GetTransactionId())
 		err := tx.Write(ctx, rec)
 		return nil, err
+	}
+}
+
+func getReadTransactionFunction(ctx context.Context, rec yeti.Record) func(tx yeti.Transaction) (any, error) {
+	return func(tx yeti.Transaction) (any, error) {
+		logger.Printf("executing transcation %s", tx.GetTransactionId())
+		return tx.Read(ctx, rec)
 	}
 }

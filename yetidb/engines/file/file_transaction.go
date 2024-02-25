@@ -1,12 +1,15 @@
 package file
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/sauvikbiswas/yeti"
@@ -28,8 +31,28 @@ func NewFileTransaction(driver yeti.Driver, session yeti.Session) *FileTransacti
 	}
 }
 
-func (ft *FileTransaction) Read(ctx context.Context) ([]yeti.Result, error) {
-	return nil, nil
+func (ft *FileTransaction) Read(ctx context.Context, r yeti.Record) (map[string]yeti.Record, error) {
+	if !ft.driver.IsActive() {
+		return nil, fmt.Errorf("this FileDriver is inactive")
+	}
+
+	if ft.session.GetSesionId() == "" {
+		return nil, fmt.Errorf("cannot execute transaction in an inactive session")
+	}
+
+	res := make(map[string]yeti.Record)
+
+	resSession, _ := ft.getRecordFromDatabaseFolder(r)
+	for key, record := range resSession {
+		res[key] = record
+	}
+
+	resTransaction, _ := ft.getRecordFromTransactionFolder(r)
+	for key, record := range resTransaction {
+		res[key] = record
+	}
+
+	return res, nil
 }
 
 func (ft *FileTransaction) Write(ctx context.Context, r yeti.Record) error {
@@ -55,9 +78,9 @@ func (ft *FileTransaction) Write(ctx context.Context, r yeti.Record) error {
 		return err
 	}
 
-	name := r.YetiName()
+	yType := r.YetiType()
 
-	if err := os.WriteFile(path.Join(ft.driver.GetPath(), ft.GetTransactionId(), name+"_"+key+".json"), byteArray, 0666); err != nil {
+	if err := os.WriteFile(path.Join(ft.driver.GetPath(), ft.GetTransactionId(), yType+"_"+key+".json"), byteArray, 0666); err != nil {
 		return err
 	}
 
@@ -83,10 +106,8 @@ func (ft *FileTransaction) GetTransactionId() string {
 func (ft *FileTransaction) makeTransactionFolderIfNotPresent() error {
 	folder := path.Join(ft.driver.GetPath(), ft.GetTransactionId())
 
-	if info, err := os.Stat(folder); errors.Is(err, fs.ErrExist) {
-		if !info.IsDir() {
-			return fmt.Errorf("%s exists and is not a directory", folder)
-		}
+	if err := checkFolder(folder); err != nil {
+		return err
 	}
 
 	return os.Mkdir(path.Join(ft.driver.GetPath(), ft.transactionId), os.ModePerm)
@@ -108,4 +129,75 @@ func (ft *FileTransaction) moveDataFromTransactionFolder() error {
 	}
 
 	return os.RemoveAll(folder)
+}
+
+func (ft *FileTransaction) getRecordFromTransactionFolder(rec yeti.Record) (map[string]yeti.Record, error) {
+	folder := path.Join(ft.driver.GetPath(), ft.GetTransactionId())
+	return readRecordFromFolder(folder, rec)
+}
+
+func (ft *FileTransaction) getRecordFromDatabaseFolder(rec yeti.Record) (map[string]yeti.Record, error) {
+	folder := ft.driver.GetPath()
+	return readRecordFromFolder(folder, rec)
+}
+
+func checkFolder(folder string) error {
+	if info, err := os.Stat(folder); errors.Is(err, fs.ErrExist) {
+		if !info.IsDir() {
+			return fmt.Errorf("%s exists and is not a directory", folder)
+		}
+	}
+	return nil
+}
+
+func readRecordFromFolder(folder string, rec yeti.Record) (map[string]yeti.Record, error) {
+
+	if err := checkFolder(folder); err != nil {
+		return nil, err
+	}
+
+	prefix := rec.YetiType()
+
+	files, err := os.ReadDir(folder)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make(map[string]yeti.Record, 0)
+
+	for _, file := range files {
+		if strings.HasPrefix(file.Name(), prefix) {
+			if b, err := readFile(path.Join(folder, file.Name())); err == nil {
+				rx := rec.New()
+				if err := rx.YetiDeserialize(b); err == nil {
+					if key, err := rx.YetiKey(); err == nil {
+						res[key] = rx
+					}
+				}
+			}
+		}
+	}
+
+	return res, nil
+}
+
+func readFile(fileName string) ([]byte, error) {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	b := make([]byte, stat.Size())
+	_, err = bufio.NewReader(file).Read(b)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+
+	return b, nil
 }
