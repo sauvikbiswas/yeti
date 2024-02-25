@@ -8,14 +8,23 @@ package test
 
 import (
 	fmt "fmt"
+	yeti "github.com/sauvikbiswas/yeti"
 	protojson "google.golang.org/protobuf/encoding/protojson"
 )
+
+func (x *TestProto) New() yeti.Record {
+	return &TestProto{}
+}
 
 func (x *TestProto) YetiSerialize() ([]byte, error) {
 	return protojson.Marshal(x)
 }
 
-func (x *TestProto) YetiName() string {
+func (x *TestProto) YetiDeserialize(b []byte) error {
+	return protojson.Unmarshal(b, x)
+}
+
+func (x *TestProto) YetiType() string {
 	return "TestProto"
 }
 
@@ -27,11 +36,20 @@ func (x *TestProto) YetiKey() (string, error) {
 	key := string(x.GetName())
 	return key, err
 }
+
+func (x *TestProtoWithCompositeKey) New() yeti.Record {
+	return &TestProtoWithCompositeKey{}
+}
+
 func (x *TestProtoWithCompositeKey) YetiSerialize() ([]byte, error) {
 	return protojson.Marshal(x)
 }
 
-func (x *TestProtoWithCompositeKey) YetiName() string {
+func (x *TestProtoWithCompositeKey) YetiDeserialize(b []byte) error {
+	return protojson.Unmarshal(b, x)
+}
+
+func (x *TestProtoWithCompositeKey) YetiType() string {
 	return "TestProtoWithCompositeKey"
 }
 

@@ -17,6 +17,7 @@ const (
 )
 
 const (
+	yetiPackage      = protogen.GoImportPath("github.com/sauvikbiswas/yeti")
 	protojsonPackage = protogen.GoImportPath("google.golang.org/protobuf/encoding/protojson")
 	fmtPackage       = protogen.GoImportPath("fmt")
 	timePackage      = protogen.GoImportPath("time")
@@ -82,11 +83,19 @@ func generateFileContent(gen *protogen.Plugin, file *protogen.File, g *protogen.
 }
 
 func genMessage(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile, msg *protogen.Message) {
+	g.P("func (x *", msg.Desc.FullName().Name(), ") New() ", yetiPackage.Ident("Record"), " {")
+	g.P("return &", msg.Desc.FullName().Name(), "{}")
+	g.P("}")
+	g.P()
 	g.P("func (x *", msg.Desc.FullName().Name(), ") YetiSerialize() ([]byte, error) {")
 	g.P("return ", protojsonPackage.Ident("Marshal"), "(x)")
 	g.P("}")
 	g.P()
-	g.P("func (x *", msg.Desc.FullName().Name(), ") YetiName() string {")
+	g.P("func (x *", msg.Desc.FullName().Name(), ") YetiDeserialize(b []byte) error {")
+	g.P("return ", protojsonPackage.Ident("Unmarshal"), "(b, x)")
+	g.P("}")
+	g.P()
+	g.P("func (x *", msg.Desc.FullName().Name(), ") YetiType() string {")
 	g.P("return \"", msg.Desc.FullName().Name(), "\"")
 	g.P("}")
 	g.P()
@@ -95,6 +104,7 @@ func genMessage(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 	getKey(gen, file, g, msg)
 	g.P("return key, err")
 	g.P("}")
+	g.P()
 }
 
 func getKey(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile, msg *protogen.Message) {
