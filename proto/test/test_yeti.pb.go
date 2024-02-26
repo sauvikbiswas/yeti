@@ -30,10 +30,10 @@ func (x *TestProto) YetiType() string {
 
 func (x *TestProto) YetiKey() (string, error) {
 	var err error
-	if string(x.GetName()) == "" {
+	if x.GetName() == "" {
 		return "", fmt.Errorf("name is not set")
 	}
-	key := string(x.GetName())
+	key := x.GetName()
 	return key, err
 }
 
@@ -55,12 +55,38 @@ func (x *TestProtoWithCompositeKey) YetiType() string {
 
 func (x *TestProtoWithCompositeKey) YetiKey() (string, error) {
 	var err error
-	if string(x.GetName()) == "" {
+	if x.GetName() == "" {
 		return "", fmt.Errorf("name is not set")
 	}
-	if string(x.GetAgeAsString()) == "" {
+	if x.GetAgeAsString() == "" {
 		return "", fmt.Errorf("age_as_string is not set")
 	}
-	key := string(x.GetName()) + string(x.GetAgeAsString())
+	key := x.GetName() + x.GetAgeAsString()
+	return key, err
+}
+
+func (x *TestProtoWithNonStringPrimaryKey) New() yeti.Record {
+	return &TestProtoWithNonStringPrimaryKey{}
+}
+
+func (x *TestProtoWithNonStringPrimaryKey) YetiSerialize() ([]byte, error) {
+	return protojson.Marshal(x)
+}
+
+func (x *TestProtoWithNonStringPrimaryKey) YetiDeserialize(b []byte) error {
+	return protojson.Unmarshal(b, x)
+}
+
+func (x *TestProtoWithNonStringPrimaryKey) YetiType() string {
+	return "TestProtoWithNonStringPrimaryKey"
+}
+
+func (x *TestProtoWithNonStringPrimaryKey) YetiKey() (string, error) {
+	var err error
+	// cannot use non-string field age as part of primary key
+	if x.GetName() == "" {
+		return "", fmt.Errorf("name is not set")
+	}
+	key := x.GetName()
 	return key, err
 }
