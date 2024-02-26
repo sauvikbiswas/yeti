@@ -115,8 +115,12 @@ func getKey(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile
 		fieldOpts := messageFieldDesc.Options().(*descriptorpb.FieldOptions)
 		v := proto.GetExtension(fieldOpts, options.E_YetiFieldOpts).(*options.YetiFieldOptions)
 		if v.GetPrimaryKey() {
-			primaryKeyGoFuncs = append(primaryKeyGoFuncs, "string(x.Get"+field.GoName+"())")
-			primaryKeyFields = append(primaryKeyFields, string(messageFieldDesc.Name()))
+			if messageFieldDesc.Kind() == protoreflect.StringKind {
+				primaryKeyGoFuncs = append(primaryKeyGoFuncs, "x.Get"+field.GoName+"()")
+				primaryKeyFields = append(primaryKeyFields, string(messageFieldDesc.Name()))
+			} else {
+				g.P("// cannot use non-string field ", messageFieldDesc.Name(), " as part of primary key")
+			}
 		}
 	}
 	if len(primaryKeyGoFuncs) == 0 {

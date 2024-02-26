@@ -21,3 +21,18 @@ message TestProtoWithCompositeKey {
         (yeti.proto.options.yeti_field_opts).primary_key = true
     ];
 }
+
+message TestProtoWithNonStringPrimaryKey {
+    string name = 1 [
+        (yeti.proto.options.yeti_field_opts).primary_key = true
+    ];
+    int32 age = 2 [
+        (yeti.proto.options.yeti_field_opts).primary_key = true
+    ];
+}
+
+message TestProtoWithNoString {
+    int32 age = 1 [
+        (yeti.proto.options.yeti_field_opts).primary_key = true
+    ];
+}
