@@ -3,6 +3,7 @@ package protoc
 import (
 	"log"
 	"testing"
+	"time"
 
 	"github.com/sauvikbiswas/yeti/proto/test"
 	"github.com/stretchr/testify/assert"
@@ -70,4 +71,24 @@ func TestProtoWithPrimaryKeyFieldUnset(t *testing.T) {
 		logger.Printf("error fetching key for %s, %s", rec.YetiType(), err.Error())
 	}
 	require.Error(t, err)
+}
+
+func TestProtoWithNoString(t *testing.T) {
+	rec := &test.TestProtoWithNoString{
+		Age: 99,
+	}
+
+	key, err := rec.YetiKey()
+
+	if err != nil {
+		logger.Printf("error fetching key for %s, %s", rec.YetiType(), err.Error())
+	}
+	require.NoError(t, err)
+
+	_, err = time.Parse("20060102150405", key)
+	if err != nil {
+		logger.Printf("error with timestamp format as key for %s, %s", rec.YetiType(), err.Error())
+	}
+
+	assert.NoError(t, err)
 }

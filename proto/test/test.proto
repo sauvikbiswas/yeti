@@ -30,3 +30,9 @@ message TestProtoWithNonStringPrimaryKey {
         (yeti.proto.options.yeti_field_opts).primary_key = true
     ];
 }
+
+message TestProtoWithNoString {
+    int32 age = 1 [
+        (yeti.proto.options.yeti_field_opts).primary_key = true
+    ];
+}

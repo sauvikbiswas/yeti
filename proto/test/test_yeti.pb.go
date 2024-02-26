@@ -10,6 +10,7 @@ import (
 	fmt "fmt"
 	yeti "github.com/sauvikbiswas/yeti"
 	protojson "google.golang.org/protobuf/encoding/protojson"
+	time "time"
 )
 
 func (x *TestProto) New() yeti.Record {
@@ -88,5 +89,29 @@ func (x *TestProtoWithNonStringPrimaryKey) YetiKey() (string, error) {
 		return "", fmt.Errorf("name is not set")
 	}
 	key := x.GetName()
+	return key, err
+}
+
+func (x *TestProtoWithNoString) New() yeti.Record {
+	return &TestProtoWithNoString{}
+}
+
+func (x *TestProtoWithNoString) YetiSerialize() ([]byte, error) {
+	return protojson.Marshal(x)
+}
+
+func (x *TestProtoWithNoString) YetiDeserialize(b []byte) error {
+	return protojson.Unmarshal(b, x)
+}
+
+func (x *TestProtoWithNoString) YetiType() string {
+	return "TestProtoWithNoString"
+}
+
+func (x *TestProtoWithNoString) YetiKey() (string, error) {
+	var err error
+	// cannot use non-string field age as part of primary key
+	t := time.Now()
+	key := t.Format("20060102150405")
 	return key, err
 }
