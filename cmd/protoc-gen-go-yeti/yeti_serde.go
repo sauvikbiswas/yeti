@@ -45,7 +45,7 @@ func generateFile(gen *protogen.Plugin, file *protogen.File) *protogen.Generated
 	genLeadingComments(g, file.Desc.SourceLocations().ByPath(protoreflect.SourcePath{fileDescriptorProtoPackageFieldNumber}))
 	g.P("package ", file.GoPackageName)
 	g.P()
-	generateFileContent(gen, file, g)
+	generateFileContent(file, g)
 	return g
 }
 
@@ -72,17 +72,17 @@ func genLeadingComments(g *protogen.GeneratedFile, loc protoreflect.SourceLocati
 	}
 }
 
-func generateFileContent(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile) {
+func generateFileContent(file *protogen.File, g *protogen.GeneratedFile) {
 	if len(file.Messages) == 0 {
 		return
 	}
 
 	for _, message := range file.Messages {
-		genMessage(gen, file, g, message)
+		genMessage(g, message)
 	}
 }
 
-func genMessage(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile, msg *protogen.Message) {
+func genMessage(g *protogen.GeneratedFile, msg *protogen.Message) {
 	g.P("func (x *", msg.Desc.FullName().Name(), ") New() ", yetiPackage.Ident("Record"), " {")
 	g.P("return &", msg.Desc.FullName().Name(), "{}")
 	g.P("}")
@@ -101,13 +101,13 @@ func genMessage(gen *protogen.Plugin, file *protogen.File, g *protogen.Generated
 	g.P()
 	g.P("func (x *", msg.Desc.FullName().Name(), ") YetiKey() (string, error) {")
 	g.P("var err error")
-	getKey(gen, file, g, msg)
+	getKey(g, msg)
 	g.P("return key, err")
 	g.P("}")
 	g.P()
 }
 
-func getKey(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile, msg *protogen.Message) {
+func getKey(g *protogen.GeneratedFile, msg *protogen.Message) {
 	primaryKeyGoFuncs := make([]string, 0)
 	primaryKeyFields := make([]string, 0)
 	for _, field := range msg.Fields {
