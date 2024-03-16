@@ -1,6 +1,7 @@
 package bptree
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,17 +14,19 @@ func TestHeader(t *testing.T) {
 
 	p.setHeader(PageType_LEAF, 8)
 	assert.Equal(t, PageType_LEAF, p.getPageType())
-	assert.Equal(t, 8, int(p.getNumKeys()))
+	assert.Equal(t, 8, int(p.getMaxKeys()))
 
 	expected := []uint8{2, 0, 8}
 	assert.Equal(t, uint8ToByte(expected), p.toBytes()[:len(expected)])
 }
 
-func TestPointer(t *testing.T) {
+func TestPointerInPlaceReplacement(t *testing.T) {
 	p, err := NewPage()
 	require.NoError(t, err)
 
 	p.setHeader(PageType_LEAF, 8)
+
+	p.setNumKeys(8)
 
 	err1 := p.setPointer(1, 32)
 	assert.NoError(t, err1)
@@ -40,16 +43,15 @@ func TestPointer(t *testing.T) {
 
 	err5 := p.setPointer(5, 32)
 	assert.NoError(t, err5)
-
-	expected := []uint8{2, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32}
-	assert.Equal(t, uint8ToByte(expected), p.toBytes()[:len(expected)])
 }
 
-func TestKeyValue(t *testing.T) {
+func TestKeyValueInPlaceReplacement(t *testing.T) {
 	p, err := NewPage()
 	require.NoError(t, err)
 
 	p.setHeader(PageType_LEAF, 8)
+
+	p.setNumKeys(8)
 
 	err1 := p.setKeyValue(0, []byte("test-key"), []byte("test-value"))
 	assert.NoError(t, err1)
@@ -70,11 +72,43 @@ func TestKeyValue(t *testing.T) {
 
 	_, err6 := p.getValue(8)
 	assert.Error(t, err6)
+}
 
-	expected := []uint8{2, 0, 8, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		8, 0, 10, 0, 116, 101, 115, 116, 45, 107, 101, 121, 116, 101, 115, 116, 45, 118, 97, 108, 117, 101}
-	assert.Equal(t, uint8ToByte(expected), p.toBytes()[:len(expected)])
+func TestKeyValueInsertion(t *testing.T) {
+	p, err := NewPage()
+	require.NoError(t, err)
+
+	p.setHeader(PageType_LEAF, 8)
+
+	err1 := p.insertKeyValue(0, []byte("test-key-0"), []byte("test-value-0"))
+	assert.NoError(t, err1)
+
+	for i := 7; i > 0; i-- {
+
+		key := fmt.Sprintf("test-key-%d", i)
+		val := fmt.Sprintf("test-value-%d", i)
+
+		err2 := p.insertKeyValue(1, []byte(key), []byte(val))
+		assert.NoError(t, err2)
+	}
+
+	err3 := p.insertKeyValue(8, []byte("test-key-8"), []byte("test-value-8"))
+	assert.Error(t, err3)
+
+	assert.Equal(t, uint16(8), p.getNumKeys())
+
+	for i := 0; i < 8; i++ {
+
+		expectedKey := fmt.Sprintf("test-key-%d", i)
+		key, err4 := p.getKey(uint16(i))
+		assert.NoError(t, err4)
+		assert.Equal(t, []byte(expectedKey), key)
+
+		expectedVal := fmt.Sprintf("test-value-%d", i)
+		val, err5 := p.getValue(uint16(i))
+		assert.NoError(t, err5)
+		assert.Equal(t, []byte(expectedVal), val)
+	}
 }
 
 func uint8ToByte(in []uint8) []byte {
@@ -92,9 +126,3 @@ func byteToUint8(in []byte) []uint8 {
 	}
 	return out
 }
-
-// Tests
-// s, g: pointer
-// offset errors
-//
-// Page exceeds check
