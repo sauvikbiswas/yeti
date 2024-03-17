@@ -111,6 +111,55 @@ func TestKeyValueInsertion(t *testing.T) {
 	}
 }
 
+func TestKeyValueReplacement(t *testing.T) {
+	p, err := NewPage()
+	require.NoError(t, err)
+
+	p.setHeader(PageType_LEAF, 4)
+
+	for i := 0; i < 4; i++ {
+
+		key := fmt.Sprintf("test-key-%d", i)
+		val := fmt.Sprintf("test-value-%d", i)
+
+		err1 := p.insertKeyValue(uint16(i), []byte(key), []byte(val))
+		assert.NoError(t, err1)
+	}
+
+	err2 := p.setKey(3, []byte("replaced-key"))
+	assert.Error(t, err2)
+
+	err3 := p.setValue(3, []byte("replaced-value"))
+	assert.Error(t, err3)
+
+}
+
+// func TestKeyPositionOrLess(t *testing.T) {
+// 	p, err := NewPage()
+// 	require.NoError(t, err)
+
+// 	p.setHeader(PageType_LEAF, 8)
+
+// 	// err1 := p.insertKeyValue(0, []byte("test-key-0"), []byte("test-value-0"))
+// 	// assert.NoError(t, err1)
+
+// 	for i := 7; i >= 0; i-- {
+
+// 		key := fmt.Sprintf("test-key-%d", i*2)
+// 		val := fmt.Sprintf("test-value-%d", i*2)
+
+// 		err2 := p.insertKeyValue(0, []byte(key), []byte(val))
+// 		assert.NoError(t, err2)
+// 	}
+
+// 	for i := uint16(0); i < 8; i++ {
+// 		key, _ := p.getKey(i)
+// 		val, _ := p.getValue(i)
+
+// 		fmt.Println(">" + string(key) + ":" + string(val) + "<")
+// 	}
+// }
+
 func uint8ToByte(in []uint8) []byte {
 	out := make([]byte, len(in))
 	for i, v := range in {
