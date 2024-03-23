@@ -272,6 +272,48 @@ func (p Page) insertKeyValue(id uint16, key []byte, value []byte) error {
 	return nil
 }
 
+func (p Page) deleteKeyValue(id uint16) error {
+	if id >= p.getNumKeys() {
+		return fmt.Errorf("id cannot be more than or equal to the current number of keys (%d) in page", p.getNumKeys())
+	}
+
+	key, _ := p.getKey(id)
+	value, _ := p.getValue(id)
+	offsetCorrection := kvSize(key, value)
+
+	offsets := make([]uint16, p.getNumKeys()-1)
+	keys := make([]string, p.getNumKeys()-1)
+	values := make([]string, p.getNumKeys()-1)
+
+	for i := id + 1; i < p.getNumKeys(); i++ {
+		baseOffset, err := p.getOffset(i)
+		if err != nil {
+			return err
+		}
+		keyi, err := p.getKey(i)
+		if err != nil {
+			return err
+		}
+		vali, err := p.getValue(i)
+		if err != nil {
+			return err
+		}
+		offsets[i-1] = baseOffset - offsetCorrection
+		keys[i-1] = string(keyi)
+		values[i-1] = string(vali)
+	}
+
+	err := p.setNumKeys(uint16(len(offsets)))
+	if err != nil {
+		return err
+	}
+	for i := int(id); i < len(offsets); i++ {
+		p.setOffset(uint16(i), offsets[i])
+		p.setKeyValue(uint16(i), []byte(keys[i]), []byte(values[i]))
+	}
+	return nil
+}
+
 func (p Page) setKeyValue(id uint16, key []byte, value []byte) error {
 	if id >= p.getNumKeys() {
 		return fmt.Errorf("id must be less than number of keys (%d) in page", p.getNumKeys())

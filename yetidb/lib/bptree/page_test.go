@@ -158,47 +158,87 @@ func TestKeyPositionOrLess(t *testing.T) {
 }
 
 func TestSplit(t *testing.T) {
-	p, err := NewPage()
-	require.NoError(t, err)
+	splitIds := []uint16{0, 4, 7}
+	for _, id := range splitIds {
+		p, err := NewPage()
+		require.NoError(t, err)
 
-	p.setHeader(PageType_LEAF, 8)
+		p.setHeader(PageType_LEAF, 8)
 
-	for i := 7; i >= 0; i-- {
+		for i := 7; i >= 0; i-- {
 
-		key := fmt.Sprintf("test-key-%d", i)
-		val := fmt.Sprintf("test-value-%d", i)
+			key := fmt.Sprintf("test-key-%d", i)
+			val := fmt.Sprintf("test-value-%d", i)
 
-		err2 := p.insertKeyValue(0, []byte(key), []byte(val))
-		assert.NoError(t, err2)
+			err2 := p.insertKeyValue(0, []byte(key), []byte(val))
+			assert.NoError(t, err2)
+		}
+
+		p1, p2, err3 := p.splitBefore(id)
+		assert.NoError(t, err3)
+
+		for i := uint16(0); i < id; i++ {
+			expectedKey := fmt.Sprintf("test-key-%d", i)
+			key, err4 := p1.getKey(i)
+			assert.NoError(t, err4)
+			assert.Equal(t, expectedKey, string(key))
+
+			expectedVal := fmt.Sprintf("test-value-%d", i)
+			val, err5 := p1.getValue(i)
+			assert.NoError(t, err5)
+			assert.Equal(t, expectedVal, string(val))
+		}
+
+		for i := uint16(0); i < 8-id; i++ {
+			expectedKey := fmt.Sprintf("test-key-%d", i+id)
+			key, err6 := p2.getKey(i)
+			assert.NoError(t, err6)
+			assert.Equal(t, expectedKey, string(key))
+
+			expectedVal := fmt.Sprintf("test-value-%d", i+id)
+			val, err7 := p2.getValue(i)
+			assert.NoError(t, err7)
+			assert.Equal(t, expectedVal, string(val))
+		}
 	}
+}
 
-	p1, p2, err3 := p.splitBefore(4)
-	assert.NoError(t, err3)
+func TestDeletion(t *testing.T) {
+	deletionIds := []uint16{0, 4, 7}
+	for _, id := range deletionIds {
+		p, err := NewPage()
+		require.NoError(t, err)
 
-	for i := uint16(0); i < 4; i++ {
-		expectedKey := fmt.Sprintf("test-key-%d", i)
-		key, err4 := p1.getKey(i)
-		assert.NoError(t, err4)
-		assert.Equal(t, expectedKey, string(key))
+		p.setHeader(PageType_LEAF, 8)
 
-		expectedVal := fmt.Sprintf("test-value-%d", i)
-		val, err5 := p1.getValue(i)
-		assert.NoError(t, err5)
-		assert.Equal(t, expectedVal, string(val))
+		for i := 7; i >= 0; i-- {
+
+			key := fmt.Sprintf("test-key-%d", i)
+			val := fmt.Sprintf("test-value-%d", i)
+
+			err2 := p.insertKeyValue(0, []byte(key), []byte(val))
+			assert.NoError(t, err2)
+		}
+
+		err3 := p.deleteKeyValue(id)
+		assert.NoError(t, err3)
+
+		shift := uint16(0)
+		for i := uint16(0); i < 7; i++ {
+			if i == id {
+				shift += 1
+			}
+			expectedKey := fmt.Sprintf("test-key-%d", i+shift)
+			key, err4 := p.getKey(i)
+			assert.NoError(t, err4)
+			assert.Equal(t, expectedKey, string(key))
+
+			expectedVal := fmt.Sprintf("test-value-%d", i+shift)
+			val, err5 := p.getValue(i)
+			assert.NoError(t, err5)
+			assert.Equal(t, expectedVal, string(val))
+		}
 	}
-
-	for i := uint16(0); i < 4; i++ {
-		expectedKey := fmt.Sprintf("test-key-%d", i+4)
-		key, err6 := p2.getKey(i)
-		assert.NoError(t, err6)
-		assert.Equal(t, expectedKey, string(key))
-
-		expectedVal := fmt.Sprintf("test-value-%d", i+4)
-		val, err7 := p2.getValue(i)
-		assert.NoError(t, err7)
-		assert.Equal(t, expectedVal, string(val))
-	}
-
 }
 
 func uint8ToByte(in []uint8) []byte {
