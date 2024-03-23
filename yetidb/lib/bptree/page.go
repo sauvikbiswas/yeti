@@ -347,6 +347,52 @@ func (p Page) getValue(id uint16) ([]byte, error) {
 	return p[pos+4+keyOffset:][:vlen], nil
 }
 
+func (p Page) splitBefore(id uint16) (Page, Page, error) {
+	left, err := NewPage()
+	if err != nil {
+		return nil, nil, err
+	}
+	left.setHeader(p.getPageType(), p.getMaxKeys())
+
+	right, err := NewPage()
+	if err != nil {
+		return nil, nil, err
+	}
+	right.setHeader(p.getPageType(), p.getMaxKeys())
+
+	nKeys := p.getNumKeys()
+
+	if id > nKeys {
+		id = nKeys
+	}
+
+	for i := uint16(0); i < id; i++ {
+		key, err := p.getKey(i)
+		if err != nil {
+			return nil, nil, err
+		}
+		value, err := p.getValue(i)
+		if err != nil {
+			return nil, nil, err
+		}
+		left.insertKeyValue(i, key, value)
+	}
+
+	for i := id; i < nKeys; i++ {
+		key, err := p.getKey(i)
+		if err != nil {
+			return nil, nil, err
+		}
+		value, err := p.getValue(i)
+		if err != nil {
+			return nil, nil, err
+		}
+		right.insertKeyValue(i-id, key, value)
+	}
+
+	return left, right, nil
+}
+
 // page size in bytes
 func (p Page) size() uint16 {
 	res, _ := p.kvPosition(p.getNumKeys())
