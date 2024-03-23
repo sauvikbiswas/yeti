@@ -134,31 +134,28 @@ func TestKeyValueReplacement(t *testing.T) {
 
 }
 
-// func TestKeyPositionOrLess(t *testing.T) {
-// 	p, err := NewPage()
-// 	require.NoError(t, err)
+func TestKeyPositionOrLess(t *testing.T) {
+	p, err := NewPage()
+	require.NoError(t, err)
 
-// 	p.setHeader(PageType_LEAF, 8)
+	p.setHeader(PageType_LEAF, 8)
 
-// 	// err1 := p.insertKeyValue(0, []byte("test-key-0"), []byte("test-value-0"))
-// 	// assert.NoError(t, err1)
+	for i := 7; i >= 0; i-- {
 
-// 	for i := 7; i >= 0; i-- {
+		key := fmt.Sprintf("test-key-%d", i*2)
+		val := fmt.Sprintf("test-value-%d", i*2)
 
-// 		key := fmt.Sprintf("test-key-%d", i*2)
-// 		val := fmt.Sprintf("test-value-%d", i*2)
+		err2 := p.insertKeyValue(0, []byte(key), []byte(val))
+		assert.NoError(t, err2)
+	}
 
-// 		err2 := p.insertKeyValue(0, []byte(key), []byte(val))
-// 		assert.NoError(t, err2)
-// 	}
-
-// 	for i := uint16(0); i < 8; i++ {
-// 		key, _ := p.getKey(i)
-// 		val, _ := p.getValue(i)
-
-// 		fmt.Println(">" + string(key) + ":" + string(val) + "<")
-// 	}
-// }
+	for i := uint16(0); i < 8; i++ {
+		key := fmt.Sprintf("test-key-%d", i)
+		pos := p.getKeyPositionOrLess([]byte(key))
+		expectedPos := i / 2
+		assert.Equal(t, expectedPos, pos)
+	}
+}
 
 func uint8ToByte(in []uint8) []byte {
 	out := make([]byte, len(in))

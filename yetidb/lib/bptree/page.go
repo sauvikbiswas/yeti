@@ -1,6 +1,7 @@
 package bptree
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -319,21 +320,21 @@ func (p Page) getKey(id uint16) ([]byte, error) {
 	return p[pos+4:][:klen], nil
 }
 
-// func (p Page) getKeyPositionOrLess(key []byte) uint16 {
-// 	nkeys := p.getNumKeys()
-// 	var found uint16 = 0
-// 	for i := uint16(0); i < nkeys; i++ {
-// 		pageKey, _ := p.getKey(i)
-// 		cmp := bytes.Compare(pageKey, key)
-// 		if cmp <= 0 {
-// 			found = i
-// 		}
-// 		if cmp >= 0 {
-// 			break
-// 		}
-// 	}
-// 	return found
-// }
+func (p Page) getKeyPositionOrLess(key []byte) uint16 {
+	nkeys := p.getNumKeys()
+	var found uint16 = 0
+	for i := uint16(0); i < nkeys; i++ {
+		pageKey, _ := p.getKey(i)
+		cmp := bytes.Compare(pageKey, key)
+		if cmp <= 0 {
+			found = i
+		}
+		if cmp >= 0 {
+			break
+		}
+	}
+	return found
+}
 
 func (p Page) getValue(id uint16) ([]byte, error) {
 	pos, err := p.kvPosition(id)
