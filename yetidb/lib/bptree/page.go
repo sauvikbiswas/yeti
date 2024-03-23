@@ -3,6 +3,7 @@ package bptree
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 )
 
@@ -18,8 +19,8 @@ const (
 // page-type: 2B
 // maxKeys: 2B
 // numKeys: 2B
-// pointers: maxKeys * 8B
-// offsets: maxKeys * 2B
+// pointers: maxKeys+1 * 8B
+// offsets: maxKeys-1 * 2B
 // key-values:
 // 	key-0-length: 2B
 // 	val-0-length: 2B
@@ -40,8 +41,8 @@ const (
 )
 
 func NewPage() (Page, error) {
-	// assumption: there is at least one pointer and one offset
-	if (Page_HEADER_SIZE + 8 + 2 + 4 + Page_MAX_KEY_SIZE + Page_MAX_VAL_SIZE) > Page_SIZE {
+	// assumption: there is at least two pointers and one offset
+	if (Page_HEADER_SIZE + 16 + 2 + Page_MAX_KEY_SIZE + Page_MAX_VAL_SIZE) > Page_SIZE {
 		return nil, fmt.Errorf("cannot create page with given constants. page size: %d, header size: %d, max key size: %d, max val size: %d", Page_SIZE, Page_HEADER_SIZE, Page_MAX_KEY_SIZE, Page_MAX_VAL_SIZE)
 	}
 	return make([]byte, Page_SIZE), nil
@@ -59,6 +60,10 @@ func (p Page) toString() string {
 
 func (p Page) toBytes() []byte {
 	return ([]byte)(p)
+}
+
+func (p Page) toHex() string {
+	return hex.Dump(p)
 }
 
 // headers
@@ -90,7 +95,7 @@ func (p Page) setHeader(pageType uint16, maxKeys uint16) {
 // pointers
 func (p Page) getPointer(id uint16) (uint64, error) {
 	if id >= p.getNumKeys() {
-		return 0, fmt.Errorf("id must be less than number of keys (%d) in page", p.getNumKeys())
+		return 0, fmt.Errorf("id must be less than or equal number of keys (%d) in page", p.getNumKeys())
 	}
 	pos := Page_HEADER_SIZE + 8*id
 	return binary.LittleEndian.Uint64(p[pos:]), nil
@@ -98,7 +103,7 @@ func (p Page) getPointer(id uint16) (uint64, error) {
 
 func (p Page) setPointer(id uint16, val uint64) error {
 	if id >= p.getNumKeys() {
-		return fmt.Errorf("id must be less than number of keys (%d) in page", p.getNumKeys())
+		return fmt.Errorf("id must be less than or equal to number of keys (%d) in page", p.getNumKeys())
 	}
 	pos := Page_HEADER_SIZE + 8*id
 	binary.LittleEndian.PutUint64(p[pos:], val)
@@ -110,7 +115,7 @@ func (p Page) offsetPosition(id uint16) (uint16, error) {
 	if id <= 0 || id >= p.getNumKeys() {
 		return 0, fmt.Errorf("offset id must be greater than 1 and less than or equal to number of keys (%d) in page", p.getNumKeys())
 	}
-	return Page_HEADER_SIZE + 8*p.getMaxKeys() + 2*(id-1), nil
+	return Page_HEADER_SIZE + 8*(p.getMaxKeys()+1) + 2*(id-1), nil
 }
 
 func (p Page) getOffset(id uint16) (uint16, error) {
@@ -142,34 +147,76 @@ func (p Page) kvPosition(id uint16) (uint16, error) {
 	if err != nil {
 		return 0, err
 	}
-	return Page_HEADER_SIZE + 8*p.getMaxKeys() + 2*p.getMaxKeys() + offset, nil
+	return Page_HEADER_SIZE + 8*(p.getMaxKeys()+1) + 2*(p.getMaxKeys()-1) + offset, nil
 }
 
 func (p Page) setKey(id uint16, key []byte) error {
+	if id >= p.getNumKeys() {
+		return fmt.Errorf("id must be less than number of keys (%d) in page", p.getNumKeys())
+	}
 	pos, err := p.kvPosition(id)
 	if err != nil {
 		return err
 	}
-	klen := uint16(len(key))
+	oldKey, err := p.getKey(id)
+	if err != nil {
+		return err
+	}
+	klen := len(key)
+	oldKlen := len(oldKey)
+	if ceilToUint16(klen) > ceilToUint16(oldKlen) {
+		return fmt.Errorf("key size (%d) must be less than or equal to %d bytes for replacement", klen, ceilToUint16(oldKlen))
+	}
+
 	binary.LittleEndian.PutUint16(p[pos:], uint16(klen))
-	for i := uint16(0); i < klen; i += 2 {
-		u16 := binary.LittleEndian.Uint16(key[i:])
-		binary.LittleEndian.PutUint16(p[pos+4+i:], u16)
+	for i := uint16(0); i < uint16(klen); i += 2 {
+		if i == uint16(klen)-1 {
+			b := make([]byte, 2)
+			b[0] = byte(key[i])
+			u16 := binary.LittleEndian.Uint16(b)
+			binary.LittleEndian.PutUint16(p[pos+4+i:], u16)
+
+		} else {
+			u16 := binary.LittleEndian.Uint16(key[i:])
+			binary.LittleEndian.PutUint16(p[pos+4+i:], u16)
+		}
 	}
 	return nil
 }
 
 func (p Page) setValue(id uint16, value []byte) error {
+	if id >= p.getNumKeys() {
+		return fmt.Errorf("id must be less than number of keys (%d) in page", p.getNumKeys())
+	}
 	pos, err := p.kvPosition(id)
 	if err != nil {
 		return err
 	}
 	klen := binary.LittleEndian.Uint16(p[pos+0:])
-	vlen := uint16(len(value))
+	keyOffset := ceilToUint16(int(klen))
+
+	oldValue, err := p.getValue(id)
+	if err != nil {
+		return err
+	}
+
+	vlen := len(value)
+	oldVlen := len(oldValue)
+	if ceilToUint16(vlen) > ceilToUint16(oldVlen) {
+		return fmt.Errorf("value size (%d) must be less than or equal to %d bytes for replacement", vlen, ceilToUint16(oldVlen))
+	}
+
 	binary.LittleEndian.PutUint16(p[pos+2:], uint16(vlen))
-	for i := uint16(0); i < vlen; i += 2 {
-		u16 := binary.LittleEndian.Uint16(value[i:])
-		binary.LittleEndian.PutUint16(p[pos+4+klen+i:], u16)
+	for i := uint16(0); i < uint16(vlen); i += 2 {
+		if i == uint16(vlen)-1 {
+			b := make([]byte, 2)
+			b[0] = byte(value[i])
+			u16 := binary.LittleEndian.Uint16(b)
+			binary.LittleEndian.PutUint16(p[pos+4+keyOffset+i:], u16)
+		} else {
+			u16 := binary.LittleEndian.Uint16(value[i:])
+			binary.LittleEndian.PutUint16(p[pos+4+keyOffset+i:], u16)
+		}
 	}
 	return nil
 }
@@ -178,55 +225,132 @@ func (p Page) insertKeyValue(id uint16, key []byte, value []byte) error {
 	if id > p.getNumKeys() {
 		return fmt.Errorf("id cannot be more than the current number of keys (%d) in page", p.getNumKeys())
 	}
-	offsetCorrection := uint16(2+2) + ceilToUint16(len(key)) + ceilToUint16(len(value))
-	if id <= p.getNumKeys() {
-		err := p.setNumKeys(p.getNumKeys() + 1)
+
+	offsetCorrection := kvSize(key, value)
+
+	offsets := make([]uint16, p.getNumKeys()+1)
+	keys := make([]string, p.getNumKeys()+1)
+	values := make([]string, p.getNumKeys()+1)
+
+	for i := uint16(0); i < p.getNumKeys(); i++ {
+		baseOffset, err := p.getOffset(i)
 		if err != nil {
 			return err
 		}
-		// Copy data after id to the next index
-		for i := p.getNumKeys() - 1; i > id; i-- {
-			prevKey, err := p.getKey(i - 1)
-			if err != nil {
-				return err
-			}
-			prevValue, err := p.getValue(i - 1)
-			if err != nil {
-				return err
-			}
-			prevOffset, err := p.getOffset(i - 1)
-			if err != nil {
-				return err
-			}
-			err = p.setOffset(i, prevOffset+offsetCorrection)
-			if err != nil {
-				return err
-			}
-			err = p.setKeyValue(i, prevKey, prevValue)
-			if err != nil {
-				return err
-			}
+		keyi, err := p.getKey(i)
+		if err != nil {
+			return err
+		}
+		vali, err := p.getValue(i)
+		if err != nil {
+			return err
+		}
+		if i < id {
+			offsets[i] = baseOffset
+			keys[i] = string(keyi)
+			values[i] = string(vali)
+		}
+		if i >= id {
+			offsets[i+1] = baseOffset + offsetCorrection
+			keys[i+1] = string(keyi)
+			values[i+1] = string(vali)
 		}
 	}
 	if id > 0 {
-		offset, err := p.getOffset(id - 1)
-		if err != nil {
-			return err
-		}
-		err = p.setOffset(id, offset+offsetCorrection)
-		if err != nil {
-			return err
-		}
+		offsets[id] = offsets[id-1] + offsetCorrection
 	}
-	return p.setKeyValue(id, key, value)
-}
-
-func (p Page) setKeyValue(id uint16, key []byte, value []byte) error {
-	err := p.setKey(id, key)
+	keys[id] = string(key)
+	values[id] = string(value)
+	err := p.setNumKeys(uint16(len(offsets)))
 	if err != nil {
 		return err
 	}
-	return p.setValue(id, value)
+	for i := 0; i < len(offsets); i++ {
+		p.setOffset(uint16(i), offsets[i])
+		p.setKeyValue(uint16(i), []byte(keys[i]), []byte(values[i]))
+	}
+	return nil
+}
+
+func (p Page) deleteKeyValue(id uint16) error {
+	if id >= p.getNumKeys() {
+		return fmt.Errorf("id cannot be more than or equal to the current number of keys (%d) in page", p.getNumKeys())
+	}
+
+	key, _ := p.getKey(id)
+	value, _ := p.getValue(id)
+	offsetCorrection := kvSize(key, value)
+
+	offsets := make([]uint16, p.getNumKeys()-1)
+	keys := make([]string, p.getNumKeys()-1)
+	values := make([]string, p.getNumKeys()-1)
+
+	for i := id + 1; i < p.getNumKeys(); i++ {
+		baseOffset, err := p.getOffset(i)
+		if err != nil {
+			return err
+		}
+		keyi, err := p.getKey(i)
+		if err != nil {
+			return err
+		}
+		vali, err := p.getValue(i)
+		if err != nil {
+			return err
+		}
+		offsets[i-1] = baseOffset - offsetCorrection
+		keys[i-1] = string(keyi)
+		values[i-1] = string(vali)
+	}
+
+	err := p.setNumKeys(uint16(len(offsets)))
+	if err != nil {
+		return err
+	}
+	for i := int(id); i < len(offsets); i++ {
+		p.setOffset(uint16(i), offsets[i])
+		p.setKeyValue(uint16(i), []byte(keys[i]), []byte(values[i]))
+	}
+	return nil
+}
+
+func (p Page) setKeyValue(id uint16, key []byte, value []byte) error {
+	if id >= p.getNumKeys() {
+		return fmt.Errorf("id must be less than number of keys (%d) in page", p.getNumKeys())
+	}
+	pos, err := p.kvPosition(id)
+	if err != nil {
+		return err
+	}
+	klen := uint16(len(key))
+	keyOffset := ceilToUint16(int(klen))
+	binary.LittleEndian.PutUint16(p[pos:], uint16(klen))
+	for i := uint16(0); i < klen; i += 2 {
+		if i == klen-1 {
+			b := make([]byte, 2)
+			b[0] = byte(key[i])
+			u16 := binary.LittleEndian.Uint16(b)
+			binary.LittleEndian.PutUint16(p[pos+4+i:], u16)
+
+		} else {
+			u16 := binary.LittleEndian.Uint16(key[i:])
+			binary.LittleEndian.PutUint16(p[pos+4+i:], u16)
+		}
+	}
+	vlen := uint16(len(value))
+	binary.LittleEndian.PutUint16(p[pos+2:], uint16(vlen))
+	for i := uint16(0); i < vlen; i += 2 {
+		if i == vlen-1 {
+			b := make([]byte, 2)
+			b[0] = byte(value[i])
+			u16 := binary.LittleEndian.Uint16(b)
+			binary.LittleEndian.PutUint16(p[pos+4+keyOffset+i:], u16)
+		} else {
+			u16 := binary.LittleEndian.Uint16(value[i:])
+			binary.LittleEndian.PutUint16(p[pos+4+keyOffset+i:], u16)
+		}
+	}
+	return nil
 }
 
 func (p Page) getKey(id uint16) ([]byte, error) {
@@ -260,8 +384,55 @@ func (p Page) getValue(id uint16) ([]byte, error) {
 		return nil, err
 	}
 	klen := binary.LittleEndian.Uint16(p[pos+0:])
+	keyOffset := ceilToUint16(int(klen))
 	vlen := binary.LittleEndian.Uint16(p[pos+2:])
-	return p[pos+4+klen:][:vlen], nil
+	return p[pos+4+keyOffset:][:vlen], nil
+}
+
+func (p Page) splitBefore(id uint16) (Page, Page, error) {
+	left, err := NewPage()
+	if err != nil {
+		return nil, nil, err
+	}
+	left.setHeader(p.getPageType(), p.getMaxKeys())
+
+	right, err := NewPage()
+	if err != nil {
+		return nil, nil, err
+	}
+	right.setHeader(p.getPageType(), p.getMaxKeys())
+
+	nKeys := p.getNumKeys()
+
+	if id > nKeys {
+		id = nKeys
+	}
+
+	for i := uint16(0); i < id; i++ {
+		key, err := p.getKey(i)
+		if err != nil {
+			return nil, nil, err
+		}
+		value, err := p.getValue(i)
+		if err != nil {
+			return nil, nil, err
+		}
+		left.insertKeyValue(i, key, value)
+	}
+
+	for i := id; i < nKeys; i++ {
+		key, err := p.getKey(i)
+		if err != nil {
+			return nil, nil, err
+		}
+		value, err := p.getValue(i)
+		if err != nil {
+			return nil, nil, err
+		}
+		right.insertKeyValue(i-id, key, value)
+	}
+
+	return left, right, nil
 }
 
 // page size in bytes
@@ -275,4 +446,8 @@ func ceilToUint16(v int) uint16 {
 		return uint16(v)
 	}
 	return uint16(v + 1)
+}
+
+func kvSize(key []byte, value []byte) uint16 {
+	return uint16(2+2) + ceilToUint16(len(key)) + ceilToUint16(len(value))
 }
